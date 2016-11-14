@@ -65,11 +65,11 @@ if [[ "${1}" = "deploy_challenge" ]]; then
 	itoken=3
 
 	while [ -n "${!idomain}" ]; do
-		digresult="$(dig +short TXT _acme-challenge.${!idomain} +trace | grep '^TXT ' | awk '{ print substr($2, 2, length($2) - 2) }')"
+		digresult="$(dig +short TXT _acme-challenge.${!idomain} | tr -d \")"
 		while [ "${digresult}"  != "${!itoken}" ]; do
 			echo "[CHALLENGE] Waiting for DNS: ${!idomain} -> \"${digresult}\" != \"${!itoken}\""
 			sleep 3
-			digresult="$(dig +short TXT _acme-challenge.${!idomain} +trace | grep '^TXT ' | awk '{ print substr($2, 2, length($2) - 2) }')"
+			digresult="$(dig +short TXT _acme-challenge.${!idomain} | tr -d \")"
 		done
 
 		idomain=$((idomain + 3))

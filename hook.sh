@@ -1,7 +1,22 @@
 #!/usr/bin/env bash
 
+_ARGS=(${@})
+TRAPPED=false
+function safety() {
+	echo "*** TRAPPED CTRL-C! ***"
+	if ! $TRAPPED; then
+		TRAPPED=true
+		if [[ "${_ARGS[0]}" == "deploy_challenge" ]]; then
+			echo "*** PERFORMING DNS CLEANUP ***"
+			clean_challenge ${_ARGS[*]:1}
+		fi
+		exit 1
+	fi
+}
+trap safety INT
+
 BASEPATH="$(dirname $0)"
-split_domain() {
+function split_domain() {
 	if [[ -z "${1/*.*.*/}" ]]; then
 		domain="$(expr match ${1} '.*\.\(.*\..*\)')"
 		subdomain="${1%.*.*}"
@@ -11,7 +26,20 @@ split_domain() {
 	fi
 }
 
-get_zone() {
+function get_cflogin() {
+	# You can use this if you are using multiple CF accounts:
+#	if [ "${1}" == "domain.one" ]; then
+#		CF_EMAIL="account@one.com"
+#		CF_KEY="k3y0n3"
+#	else
+#		CF_EMAIL="account@two.com"
+#		CF_KEY="k3ytw0"
+#	fi
+}
+
+function get_zone() {
+	get_cflogin "${1}"
+
 	zone=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=${1}" \
 		-H "X-Auth-Email: ${CF_EMAIL}" \
 		-H "X-Auth-Key: ${CF_KEY}" \
@@ -24,8 +52,7 @@ get_zone() {
 	fi
 }
 
-if [[ "${1}" = "deploy_challenge" ]]; then
-	shift
+function deploy_challenge() {
 	split_domain "${1}"
 	get_zone "${domain}"
 	echo "[CHALLENGE] ${1} CF Zone ID: ${zone}"
@@ -75,10 +102,9 @@ if [[ "${1}" = "deploy_challenge" ]]; then
 		idomain=$((idomain + 3))
 		itoken=$((itoken + 3))
 	done
-fi
+}
 
-if [[ "${1}" = "clean_challenge" ]]; then
-	shift
+function clean_challenge() {
 	split_domain "${1}"
 	get_zone "${domain}"
 	echo "[CLEAN] ${1} CF Zone ID: ${zone}"
@@ -123,19 +149,25 @@ if [[ "${1}" = "clean_challenge" ]]; then
 		idomain=$((idomain + 3))
 		itoken=$((itoken + 3))
 	done
-fi
+}
 
-if [[ "${1}" = "deploy_cert" ]]; then
-	domain="${2}"
-	privkey="${3}"
-	cert="${5}"
+function deploy_cert() {
+	domain="${1}"
+	privkey="${2}"
+	cert="${4}"
 
 	if [[ -f $BASEPATH/deploy.sh ]]; then
 		echo "[DEPLOY] ./deploy.sh ${domain} ${privkey} ${cert}"
 		$BASEPATH/deploy.sh ${domain} ${privkey} ${cert}
 	fi
+}
 
-	exit 0
+if [[ "${1}" = "deploy_challenge" ]]; then
+	deploy_challenge ${@:2}
+elif [[ "${1}" = "clean_challenge" ]]; then
+	clean_challenge ${@:2}
+elif [[ "${1}" = "deploy_cert" ]]; then
+	deploy_cert ${@:2}
 fi
 
 exit 0

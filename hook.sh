@@ -35,6 +35,7 @@ function get_cflogin() {
 #		CF_EMAIL="account@two.com"
 #		CF_KEY="k3ytw0"
 #	fi
+	:
 }
 
 function get_zone() {
